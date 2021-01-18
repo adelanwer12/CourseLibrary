@@ -3,6 +3,7 @@ using CourseLibrary.API.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CourseLibrary.API.Helpers;
 using CourseLibrary.API.Models;
 
 namespace CourseLibrary.API.Services
@@ -123,29 +124,25 @@ namespace CourseLibrary.API.Services
             return _context.Authors.ToList<Author>();
         }
 
-        public IEnumerable<Author> GetAuthors(AuthorsResourceParameters parameters)
+        public PagedList<Author> GetAuthors(AuthorsResourceParameters parameters)
         {
-            if (string.IsNullOrWhiteSpace(parameters.mainCategory) && string.IsNullOrWhiteSpace(parameters.searchQuery))
-            {
-                return GetAuthors();
-            }
-
             IQueryable<Author> collection = _context.Authors;
-            if (!string.IsNullOrWhiteSpace(parameters.mainCategory))
+            if (!string.IsNullOrWhiteSpace(parameters.MainCategory))
             {
-                parameters.mainCategory = parameters.mainCategory.Trim();
-                collection = collection.Where(x => x.MainCategory == parameters.mainCategory);
+                parameters.MainCategory = parameters.MainCategory.Trim();
+                collection = collection.Where(x => x.MainCategory == parameters.MainCategory);
             }
 
-            if (!string.IsNullOrWhiteSpace(parameters.searchQuery))
+            if (!string.IsNullOrWhiteSpace(parameters.SearchQuery))
             {
-                parameters.searchQuery = parameters.searchQuery.Trim();
+                parameters.SearchQuery = parameters.SearchQuery.Trim();
                 collection = collection.Where(a =>
-                    a.MainCategory.Contains(parameters.searchQuery) 
-                    || a.FirstName.Contains(parameters.searchQuery) 
-                    || a.LastName.Contains(parameters.searchQuery));
+                    a.MainCategory.Contains(parameters.SearchQuery) 
+                    || a.FirstName.Contains(parameters.SearchQuery) 
+                    || a.LastName.Contains(parameters.SearchQuery));
             }
-            return collection.ToList();
+
+            return PagedList<Author>.Create(collection, parameters.PageNumber, parameters.PageSize);
         }
         public IEnumerable<Author> GetAuthors(IEnumerable<Guid> authorIds)
         {

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using AutoMapper;
 using CourseLibrary.API.Entities;
@@ -30,6 +31,14 @@ namespace CourseLibrary.API.Controllers
         {
             var authorsFromRepo =  _repository.GetAuthors(parameters);
             var authors = _mapper.Map<IEnumerable<AuthorForReturn>>(authorsFromRepo);
+            var paginationMetaData = new
+            {
+                totalCount = authorsFromRepo.TotalCount,
+                pageSize = authorsFromRepo.PageSize,
+                currentPage = authorsFromRepo.CurrentPage,
+                totalPages = authorsFromRepo.TotalPages
+            };
+            Response.Headers.Add("X-Pagination", JsonSerializer.Serialize(paginationMetaData));
             return Ok(authors);
         }
 
