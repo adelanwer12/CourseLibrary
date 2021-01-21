@@ -8,7 +8,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
 using CourseLibrary.API.DbContexts;
@@ -44,7 +46,24 @@ namespace CourseLibrary.API
                 .AddXmlDataContractSerializerFormatters();
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "CourseLibrary.API", Version = "v1" });
+                c.SwaggerDoc(
+                    "LibraryOpenAPISpecification", 
+                    new OpenApiInfo
+                    {
+                        Title = "Library API", 
+                        Version = "v1",
+                        Description = "through this api you can access authors and courses",
+                        Contact = new OpenApiContact()
+                        {
+                            Email = "adel@hightechegypt.com",
+                            Name = "adel",
+                            Url = new Uri("http://www.hightechegypt.com")
+                        },
+                    });
+                //add xmlComments to Swagger Documentation 
+                var xmlCommentsFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                var xmlCommentsFullPath = Path.Combine(AppContext.BaseDirectory, xmlCommentsFile);
+                c.IncludeXmlComments(xmlCommentsFullPath);
             });
             services.AddDbContext<CourseLibraryContext>(options =>
             {
@@ -61,7 +80,7 @@ namespace CourseLibrary.API
             {
                 app.UseDeveloperExceptionPage();
                 app.UseSwagger();
-                app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "CourseLibrary.API v1"));
+                app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/LibraryOpenAPISpecification/swagger.json", "Library API"));
             }
             else
             {

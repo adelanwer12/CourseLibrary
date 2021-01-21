@@ -7,6 +7,7 @@ using AutoMapper;
 using CourseLibrary.API.Entities;
 using CourseLibrary.API.Models;
 using CourseLibrary.API.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,13 +27,13 @@ namespace CourseLibrary.API.Controllers
         }
 
         [HttpGet]
-        public ActionResult<IEnumerable<CourseForReturn>> GetCourses(Guid authorId)
+        public async Task<ActionResult<IEnumerable<CourseForReturn>>> GetCourses(Guid authorId)
         {
-            if (!_repository.AuthorExists(authorId))
+            if (!await _repository.AuthorExists(authorId))
             {
                 return NotFound("Author Not Found");
             }
-            var coursesFromRepo = _repository.GetCourses(authorId);
+            var coursesFromRepo =await _repository.GetCourses(authorId);
             if (coursesFromRepo == null)
             {
                 return NotFound("this author has no courses");
@@ -41,16 +42,25 @@ namespace CourseLibrary.API.Controllers
             var courses = _mapper.Map<IEnumerable<CourseForReturn>>(coursesFromRepo);
             return Ok(courses);
         }
-
+        /// <summary>
+        /// get a course by id of specific author 
+        /// </summary>
+        /// <param name="authorId">the id of course author</param>
+        /// <param name="courseId">the id o the course</param>
+        /// <returns>An ActionResult of type Course</returns>
+        /// <response code="200">Returns the requested course</response>
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         [HttpGet("{courseId}",Name = "getCourse")]
-        public ActionResult<CourseForReturn> GetCourse(Guid authorId, Guid courseId)
+        public async Task<ActionResult<CourseForReturn>> GetCourse(Guid authorId, Guid courseId)
         {
-            if (!_repository.AuthorExists(authorId))
+            if (!await _repository.AuthorExists(authorId))
             {
                 return NotFound("Author Not Found");
             }
 
-            var courseFromRepo = _repository.GetCourse(authorId, courseId);
+            var courseFromRepo =await _repository.GetCourse(authorId, courseId);
             if (courseFromRepo == null)
             {
                 return NotFound("this Course Not Found");
@@ -61,15 +71,15 @@ namespace CourseLibrary.API.Controllers
         }
 
         [HttpPost]
-        public ActionResult<CourseForReturn> CreateCourseForAuthor(Guid authorId, CourseForCreation course)
+        public async Task<ActionResult<CourseForReturn>> CreateCourseForAuthor(Guid authorId, CourseForCreation course)
         {
-            if (!_repository.AuthorExists(authorId))
+            if (!await _repository.AuthorExists(authorId))
             {
                 return NotFound();
             }
             var courseForAdd = _mapper.Map<Course>(course);
             _repository.AddCourse(authorId,courseForAdd);
-            if (!_repository.Save())
+            if (!await _repository.Save())
             {
                 return BadRequest("Error Happens when saving in Data Base");
             }
@@ -80,19 +90,19 @@ namespace CourseLibrary.API.Controllers
         }
 
         [HttpPut("{courseId}")]
-        public ActionResult<CourseForReturn> UpdateCourseForAuthor(Guid authorId, Guid courseId, CourseForUpdate course)
+        public async Task<ActionResult<CourseForReturn>> UpdateCourseForAuthor(Guid authorId, Guid courseId, CourseForUpdate course)
         {
-            if (!_repository.AuthorExists(authorId))
+            if (!await _repository.AuthorExists(authorId))
             {
                 return NotFound();
             }
 
-            var courseFromRepo = _repository.GetCourse(authorId, courseId);
+            var courseFromRepo = await _repository.GetCourse(authorId, courseId);
             if (courseFromRepo == null)
             {
                 var courseToAdd = _mapper.Map<Course>(course);
                 _repository.AddCourse(authorId, courseToAdd);
-                if (!_repository.Save())
+                if (!await _repository.Save())
                 {
                     return BadRequest("Error Happens when saving in Data Base");
                 }
@@ -104,24 +114,41 @@ namespace CourseLibrary.API.Controllers
 
             _mapper.Map(course, courseFromRepo);
             _repository.UpdateCourse(courseFromRepo);
-            if (!_repository.Save())
+            if (!await _repository.Save())
             {
                 return BadRequest("Error Happens when saving in Data Base");
             }
 
             return NoContent();
         }
-
+        /// <summary>
+        /// Partially update an author
+        /// </summary>
+        /// <param name="authorId">the id of the author that you want to update course for him </param>
+        /// <param name="courseId">the id of the course you want to update</param>
+        /// <param name="pathDocument"> the set of operations to apply to the course</param>
+        /// <returns>An action result of type course</returns>
+        /// <remarks>
+        /// Sample request (this request update the author's course title)  \
+        /// PATCH /authors/{authorId}/courses/{courseId}    \
+        /// [   \
+        ///     {   \
+        ///         "op":"replace", \
+        ///         "path":"/title",    \
+        ///         "value":"new title" \
+        ///     }   \
+        /// ]   
+        /// </remarks>
         [HttpPatch("{courseId}")]
-        public ActionResult PartiallyUpdateCourseForAuthor(Guid authorId, Guid courseId,
+        public async Task<ActionResult> PartiallyUpdateCourseForAuthor(Guid authorId, Guid courseId,
             JsonPatchDocument<CourseForUpdate> pathDocument)
         {
-            if (!_repository.AuthorExists(authorId))
+            if (!await _repository.AuthorExists(authorId))
             {
                 return NotFound();
             }
 
-            var courseFromRepo = _repository.GetCourse(authorId, courseId);
+            var courseFromRepo =await _repository.GetCourse(authorId, courseId);
             if (courseFromRepo == null)
             {
                 return NotFound();
@@ -135,7 +162,7 @@ namespace CourseLibrary.API.Controllers
             }
             _mapper.Map(courseToPatch, courseFromRepo);
             _repository.UpdateCourse(courseFromRepo);
-            if (!_repository.Save())
+            if (!await _repository.Save())
             {
                 return BadRequest("Error Happens when saving in Data Base");
             }
@@ -145,20 +172,20 @@ namespace CourseLibrary.API.Controllers
         }
 
         [HttpDelete("{courseId}")]
-        public ActionResult DeleteCourseForAuthor(Guid authorId, Guid courseId)
+        public async Task<ActionResult> DeleteCourseForAuthor(Guid authorId, Guid courseId)
         {
-            if (!_repository.AuthorExists(authorId))
+            if (!await _repository.AuthorExists(authorId))
             {
                 return NotFound();
             }
 
-            var courseFromRepo = _repository.GetCourse(authorId, courseId);
+            var courseFromRepo =await _repository.GetCourse(authorId, courseId);
             if (courseFromRepo == null)
             {
                 return NotFound();
             }
             _repository.DeleteCourse(courseFromRepo);
-            if (!_repository.Save())
+            if (! await _repository.Save())
             {
                 return BadRequest("Error Happens when saving in Data Base");
             }

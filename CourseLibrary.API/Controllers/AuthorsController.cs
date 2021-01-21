@@ -1,15 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 using AutoMapper;
 using CourseLibrary.API.Entities;
-using CourseLibrary.API.Helpers;
 using CourseLibrary.API.Models;
 using CourseLibrary.API.Services;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 
 namespace CourseLibrary.API.Controllers
 {
@@ -25,27 +22,44 @@ namespace CourseLibrary.API.Controllers
             _repository = repository;
             _mapper = mapper;
         }
+        /// <summary>
+        /// get authors and add pagination and filtering 
+        /// </summary>
+        /// <param name="parameters"></param>
+        /// <returns></returns>
 
-        [HttpGet]
-        public  ActionResult<IEnumerable<AuthorForReturn>> GetAuthors([FromQuery] AuthorsResourceParameters parameters)
+        [HttpGet(Name = "GetAuthors")]
+        public async  Task<ActionResult<IEnumerable<AuthorForReturn>>> GetAuthors([FromQuery] AuthorsResourceParameters parameters)
         {
-            var authorsFromRepo =  _repository.GetAuthors(parameters);
+            var authorsFromRepo =await  _repository.GetAuthors(parameters);
             var authors = _mapper.Map<IEnumerable<AuthorForReturn>>(authorsFromRepo);
+            var previousPageLink = authorsFromRepo.HasPrevious
+                ? CreateAuthorsResourceUri(parameters, ResourceUriType.PreviousPage)
+                : null;
+            var nextPageLink = authorsFromRepo.HasNext
+                ? CreateAuthorsResourceUri(parameters, ResourceUriType.NextPage)
+                : null;
             var paginationMetaData = new
             {
                 totalCount = authorsFromRepo.TotalCount,
                 pageSize = authorsFromRepo.PageSize,
                 currentPage = authorsFromRepo.CurrentPage,
-                totalPages = authorsFromRepo.TotalPages
+                totalPages = authorsFromRepo.TotalPages,
+                previousPageLink,
+                nextPageLink
             };
-            Response.Headers.Add("X-Pagination", JsonSerializer.Serialize(paginationMetaData));
+            Response.Headers.Add("X-Pagination", JsonConvert.SerializeObject(paginationMetaData));
             return Ok(authors);
         }
-
+        /// <summary>
+        /// get an author by his/her id
+        /// </summary>
+        /// <param name="authorId"></param>
+        /// <returns>An ActionResult of type Author</returns>
         [HttpGet("{authorId}",Name = "getAuthor")]
-        public ActionResult<AuthorForReturn> GetAuthor(Guid authorId)
+        public async Task<ActionResult<AuthorForReturn>> GetAuthor(Guid authorId)
         {
-            var authorFromRepo = _repository.GetAuthor(authorId);
+            var authorFromRepo = await _repository.GetAuthor(authorId);
             if (authorFromRepo == null)
             {
                 return NotFound();
@@ -57,11 +71,11 @@ namespace CourseLibrary.API.Controllers
         }
 
         [HttpPost]
-        public ActionResult<AuthorForReturn> CreateAuthor(AuthorForCreation author)
+        public async Task<ActionResult<AuthorForReturn>> CreateAuthor(AuthorForCreation author)
         {
             var authorToAdd = _mapper.Map<Author>(author);
             _repository.AddAuthor(authorToAdd);
-            if (!_repository.Save())
+            if (! await _repository.Save())
             {
                 return BadRequest("Error Happens when saving in Data Base");
             }
@@ -78,20 +92,51 @@ namespace CourseLibrary.API.Controllers
         }
 
         [HttpDelete("{authorId}")]
-        public ActionResult DeleteAuthor(Guid authorId)
+        public async Task<ActionResult> DeleteAuthor(Guid authorId)
         {
-            var authorFromRepo = _repository.GetAuthor(authorId);
+            var authorFromRepo = await _repository.GetAuthor(authorId);
             if (authorFromRepo ==null)
             {
                 return NotFound();
             }
             _repository.DeleteAuthor(authorFromRepo);
-            if (!_repository.Save())
+            if (!await _repository.Save())
             {
                 return BadRequest("Error Happens when saving in Data Base");
             }
 
             return NoContent();
+        }
+
+        private string CreateAuthorsResourceUri(AuthorsResourceParameters parameters, ResourceUriType type)
+        {
+            switch (type)
+            {
+                case ResourceUriType.PreviousPage:
+                    return Url.Link("GetAuthors", new
+                    {
+                        pageNumber = parameters.PageNumber -1,
+                        pageSize = parameters.PageSize,
+                        mainCategory = parameters.MainCategory,
+                        searchQuery = parameters.SearchQuery
+                    });
+                case ResourceUriType.NextPage:
+                    return Url.Link("GetAuthors", new
+                    {
+                        pageNumber = parameters.PageNumber + 1,
+                        pageSize = parameters.PageSize,
+                        mainCategory = parameters.MainCategory,
+                        searchQuery = parameters.SearchQuery
+                    });
+                default:
+                    return Url.Link("GetAuthors", new
+                    {
+                        pageNumber = parameters.PageNumber,
+                        pageSize = parameters.PageSize,
+                        mainCategory = parameters.MainCategory,
+                        searchQuery = parameters.SearchQuery
+                    });
+            }
         }
     }
 }

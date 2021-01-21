@@ -26,14 +26,14 @@ namespace CourseLibrary.API.Controllers
         }
 
         [HttpGet("({ids})", Name = "getAuthorCollection")]
-        public IActionResult GetAuthorsCollections([FromRoute] [ModelBinder(BinderType = typeof(ArrayModelBinder))] IEnumerable<Guid> ids)
+        public async Task<IActionResult> GetAuthorsCollections([FromRoute] [ModelBinder(BinderType = typeof(ArrayModelBinder))] IEnumerable<Guid> ids)
         {
             if (ids == null)
             {
                 return BadRequest();
             }
 
-            var authorFromRepo = _repository.GetAuthors(ids);
+            var authorFromRepo =await _repository.GetAuthors(ids);
             if (ids.Count() != authorFromRepo.Count())
             {
                 return NotFound();
@@ -44,7 +44,7 @@ namespace CourseLibrary.API.Controllers
         }
         
         [HttpPost]
-        public ActionResult<IEnumerable<AuthorForReturn>> CreateAuthorCollection(
+        public async Task<ActionResult<IEnumerable<AuthorForReturn>>> CreateAuthorCollection(
             IEnumerable<AuthorForCreation> authorCollection)
         {
             var authorsToAdd = _mapper.Map<IEnumerable<Author>>(authorCollection);
@@ -53,7 +53,7 @@ namespace CourseLibrary.API.Controllers
                 _repository.AddAuthor(author);
             }
 
-            if (!_repository.Save())
+            if (! await _repository.Save())
             {
                 return BadRequest("Error Happens when saving in Data Base");
             }
